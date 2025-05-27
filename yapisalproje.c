@@ -363,7 +363,7 @@ void yazarDeleter(KutuphaneVeri *veri) {
     }
     char target_ad[50];
     printf("Silmek istediginiz yazar adini giriniz: ");
-    scanf(" %49s", target_ad);
+    scanf(" %49[^\n	]", target_ad);
     while(getchar() != '\n');
 
     yazarNode *cur = veri->yazarHead, *prev = NULL;
@@ -881,12 +881,12 @@ void ogrenciUpgrader(KutuphaneVeri *veri) {
     switch (secim) {
         case 1:
             printf("Yeni ogrenci adini giriniz: ");
-            scanf(" %49s", current->data.ogrenciAdi);
+            scanf(" %49[^\n]", current->data.ogrenciAdi);
              while(getchar()!='\n');
             break;
         case 2:
             printf("Yeni ogrenci soyadini giriniz: ");
-            scanf(" %49s", current->data.ogrenciSoyadi);
+            scanf(" %49[^\n]", current->data.ogrenciSoyadi);
              while(getchar()!='\n');
             break;
         case 3: {
@@ -1617,7 +1617,8 @@ void freeKitapList(KitapNode *head) {
 // ... Önceki yanýttaki gibi, ancak global deðiþkenler yerine veri->... kullanýlacak ...
 void kitabinYazariniGuncelle(KutuphaneVeri *veri) {
     char isbn_input[14];
-    int eski_yazarId_input, yeni_yazarId_input;
+    int secim;
+    int yazarId_input;
 
     printf("Yazarini guncellemek istediginiz kitabin ISBN'ini giriniz: ");
     scanf(" %13s", isbn_input);
@@ -1629,133 +1630,129 @@ void kitabinYazariniGuncelle(KutuphaneVeri *veri) {
         return;
     }
 
-    printf("\n--- Kitap: %s (ISBN: %s) ---\n", kitap->data.kitapAdi, kitap->data.isbn);
-    printf("Mevcut Yazarlar:\n");
-    int yazar_sira_no = 0; // Kullanýcýya gösterilecek sýra numarasý için
-    int mevcut_yazar_idler[100];
-    int mevcut_yazar_sayisi = 0;
+    int devamEt = 1;
+    while (devamEt) {
+        printf("\n--- Kitap: %s (ISBN: %s) ---\n", kitap->data.kitapAdi, kitap->data.isbn);
+        printf("Mevcut Yazarlar:\n");
+        int yazar_sira_no = 0;
+        int mevcut_yazar_idler[100]; // Kitabýn mevcut yazarlarýnýn ID'lerini tutmak için
+        int mevcut_yazar_sayisi = 0;
+        int silinmis_yazar_var_mi = 0;
 
-    for (int i = 0; i < veri->kitapYazarEslestirmeSayisi; i++) {
-        if (strcmp((*(veri->kitapYazarEslestirmeleri + i)).isbn, isbn_input) == 0) {
-            yazarNode* yazar = findYazarByID(veri->yazarHead, (*(veri->kitapYazarEslestirmeleri + i)).yazarId);
-            yazar_sira_no++;
-            if (yazar) {
-                printf("%d. ID: %d, Ad: %s, Soyad: %s\n", yazar_sira_no, yazar->data.yazarId, yazar->data.yazarAdi, yazar->data.yazarSoyadi);
-            } else if ((*(veri->kitapYazarEslestirmeleri + i)).yazarId == -1) {
-                printf("%d. ID: -1 (Yazar Silinmis - Bu eslestirme kaldirilabilir)\n", yazar_sira_no);
-            } else {
-                printf("%d. ID: %d (Yazar bilgisi bulunamadi)\n", yazar_sira_no, (*(veri->kitapYazarEslestirmeleri + i)).yazarId);
-            }
-            if (mevcut_yazar_sayisi < 100) {
-                mevcut_yazar_idler[mevcut_yazar_sayisi++] = (*(veri->kitapYazarEslestirmeleri + i)).yazarId;
-            }
-        }
-    }
-
-    if (yazar_sira_no == 0) {
-        printf("Bu kitaba atanmis yazar bulunmamaktadir. Once yazar ekleyin.\n");
-        printf("Yeni yazar eklemek ister misiniz? (e/h): ");
-        char sec;
-        scanf(" %c", &sec);
-        while(getchar()!='\n');
-        if (sec == 'e' || sec == 'E') {
-            printf("Eklenecek yeni yazarin ID'sini giriniz: ");
-            if (scanf("%d", ¥i_yazarId_input) != 1) {
-                printf("Gecersiz yazar ID girisi.\n");
-                while(getchar() != '\n'); return;
-            }
-            while(getchar() != '\n');
-            if (!findYazarByID(veri->yazarHead, yeni_yazarId_input)) {
-                printf("Hata: '%d' ID'li yazar sistemde bulunamadi.\n", yeni_yazarId_input);
-                return;
-            }
-            if (addKitapYazarEslestirmeDizisine(veri, isbn_input, yeni_yazarId_input)) {
-                printf("Yeni yazar (ID: %d) kitaba basariyla eklendi.\n", yeni_yazarId_input);
-                saveKitapYazarEslestirmeleri(KITAP_YAZAR_CSV_FILE, veri);
-            } else {
-                printf("Yeni yazar eklenirken hata olustu.\n");
-            }
-        }
-        return;
-    }
-
-    printf("\nEslestirmesini kaldirmak istediginiz yazarin ID'sini giriniz (veya 0 birakmak icin): ");
-    if (scanf("%d", &eski_yazarId_input) != 1) {
-        printf("Gecersiz yazar ID girisi.\n");
-        while(getchar() != '\n'); return;
-    }
-    while(getchar() != '\n');
-
-    int eskiYazarKitaptaMevcut = 0; // Bayrak: Girilen eski yazar ID'si kitabýn yazarlarýndan biri mi?
-    if (eski_yazarId_input != 0) {
-        int k = 0;
-        // Bayrak kullanarak döngü (break olmadan)
-        while (k < mevcut_yazar_sayisi && !eskiYazarKitaptaMevcut) {
-            if (mevcut_yazar_idler[k] == eski_yazarId_input) {
-                eskiYazarKitaptaMevcut = 1; // Bulundu, bayraðý set et
-            }
-            k++;
-        }
-        if (!eskiYazarKitaptaMevcut && eski_yazarId_input != -1) {
-            printf("Hata: Girdiginiz ID (%d) bu kitabin mevcut yazarlari arasinda bulunmuyor.\n", eski_yazarId_input);
-            return;
-        }
-    }
-
-
-    printf("Eklenecek yeni yazarin ID'sini giriniz (veya 0 degisiklik yapmamak icin): ");
-    if (scanf("%d", ¥i_yazarId_input) != 1) {
-        printf("Gecersiz yazar ID girisi.\n");
-        while(getchar() != '\n'); return;
-    }
-    while(getchar() != '\n');
-
-    int yeniYazarSistemdeVar = 0;
-    int yeniYazarZatenKitaptaVar = 0;
-
-    if (yeni_yazarId_input != 0) {
-        if (findYazarByID(veri->yazarHead, yeni_yazarId_input)) {
-            yeniYazarSistemdeVar = 1;
-            // Yeni yazar zaten kitapla eþleþmiþ mi kontrolü
-            for (int j = 0; j < veri->kitapYazarEslestirmeSayisi && !yeniYazarZatenKitaptaVar; j++) {
-                if (strcmp((*(veri->kitapYazarEslestirmeleri + j)).isbn, isbn_input) == 0 &&
-                    (*(veri->kitapYazarEslestirmeleri + j)).yazarId == yeni_yazarId_input) {
-                    yeniYazarZatenKitaptaVar = 1;
+        for (int i = 0; i < veri->kitapYazarEslestirmeSayisi; i++) {
+            if (strcmp((*(veri->kitapYazarEslestirmeleri + i)).isbn, isbn_input) == 0) {
+                yazar_sira_no++;
+                yazarNode* yazar = findYazarByID(veri->yazarHead, (*(veri->kitapYazarEslestirmeleri + i)).yazarId);
+                if (yazar) {
+                    printf("%d. ID: %d, Ad: %s, Soyad: %s\n", yazar_sira_no, yazar->data.yazarId, yazar->data.yazarAdi, yazar->data.yazarSoyadi);
+                } else if ((*(veri->kitapYazarEslestirmeleri + i)).yazarId == -1) {
+                    printf("%d. ID: -1 (Yazar Silinmis - Bu eslestirme kaldirilabilir)\n", yazar_sira_no);
+                    silinmis_yazar_var_mi = 1;
+                } else {
+                    printf("%d. ID: %d (Yazar bilgisi bulunamadi - Bu eslestirme kaldirilabilir)\n", yazar_sira_no, (*(veri->kitapYazarEslestirmeleri + i)).yazarId);
+                    // Bu durum, yazar veritabanýndan silinmiþ ama eslestirme kalmýþsa oluþabilir.
+                    // -1'den farklý bir ID ise ve yazar bulunamýyorsa, bu bir veri tutarsýzlýðý olabilir.
+                }
+                if (mevcut_yazar_sayisi < 100) { // Güvenlik için sýnýr kontrolü
+                    mevcut_yazar_idler[mevcut_yazar_sayisi++] = (*(veri->kitapYazarEslestirmeleri + i)).yazarId;
                 }
             }
         }
-        if (!yeniYazarSistemdeVar) {
-             printf("Hata: Eklenecek yazar (ID: %d) sistemde bulunamadi.\n", yeni_yazarId_input);
-             return;
+
+        if (yazar_sira_no == 0) {
+            printf("Bu kitaba atanmis yazar bulunmamaktadir.\n");
         }
-        if (yeniYazarZatenKitaptaVar) {
-            printf("Hata: Yeni yazar (ID: %d) zaten bu kitapla eslestirilmis.\n", yeni_yazarId_input);
-            return;
+        if (silinmis_yazar_var_mi){
+            printf("Uyari: Bu kitapla iliskili silinmis yazar kayitlari (-1 ID) bulunmaktadir.\n");
         }
-    }
 
 
-    int islemYapildi = 0;
-    if (eski_yazarId_input != 0 && eskiYazarKitaptaMevcut) {
-        removeKitapYazarEslestirmeDizisinden(veri, isbn_input, eski_yazarId_input);
-        printf("Eski yazar (ID: %d) kitaptan kaldirildi.\n", eski_yazarId_input);
-        islemYapildi = 1;
-    }
+        printf("\nYapmak istediginiz islemi secin:\n");
+        printf("1. Mevcut Bir Yazari Kaldir\n");
+        printf("2. Yeni Bir Yazar Ekle\n");
+        printf("0. Guncellemeyi Bitir ve Kaydet\n");
+        printf("Seciminiz: ");
 
-    if (yeni_yazarId_input != 0 && yeniYazarSistemdeVar && !yeniYazarZatenKitaptaVar) {
-        if (addKitapYazarEslestirmeDizisine(veri, isbn_input, yeni_yazarId_input)) {
-            printf("Yeni yazar (ID: %d) kitaba eklendi.\n", yeni_yazarId_input);
-            islemYapildi = 1;
-        } else {
-            printf("Yeni yazar eklenirken hata olustu.\n");
+        if (scanf("%d", &secim) != 1) {
+            printf("Gecersiz giris. Sayi bekleniyor.\n");
+            while (getchar() != '\n');
+            continue; // Döngünün baþýna dön
         }
-    }
+        while(getchar() != '\n');
 
-    if (islemYapildi) {
-        saveKitapYazarEslestirmeleri(KITAP_YAZAR_CSV_FILE, veri);
-        printf("Kitap-Yazar eslestirmeleri guncellendi.\n");
-    } else {
-        printf("Herhangi bir degisiklik yapilmadi.\n");
+        switch (secim) {
+            case 1: // Mevcut Bir Yazarý Kaldýr
+                if (yazar_sira_no == 0) {
+                    printf("Kaldirilacak yazar bulunmamaktadir.\n");
+                    break;
+                }
+                printf("Kaldirmak istediginiz yazarin ID'sini giriniz: ");
+                if (scanf("%d", &yazarId_input) != 1) {
+                    printf("Gecersiz yazar ID girisi.\n");
+                    while(getchar() != '\n');
+                    break;
+                }
+                while(getchar() != '\n');
+
+                int yazarKitaptaMevcut = 0;
+                for(int i=0; i < mevcut_yazar_sayisi; ++i){
+                    if(mevcut_yazar_idler[i] == yazarId_input){
+                        yazarKitaptaMevcut = 1;
+                        break;
+                    }
+                }
+
+                if (yazarKitaptaMevcut) {
+                    removeKitapYazarEslestirmeDizisinden(veri, isbn_input, yazarId_input);
+                    printf("Yazar (ID: %d) kitaptan kaldirildi.\n", yazarId_input);
+                } else {
+                    printf("Hata: Girdiginiz ID (%d) bu kitabin mevcut yazarlari arasinda bulunmuyor veya gecersiz.\n", yazarId_input);
+                }
+                break;
+
+            case 2: // Yeni Bir Yazar Ekle
+                printf("Eklemek istediginiz yeni yazarin ID'sini giriniz: ");
+                if (scanf("%d", &yazarId_input) != 1) {
+                    printf("Gecersiz yazar ID girisi.\n");
+                    while(getchar() != '\n');
+                    break;
+                }
+                while(getchar() != '\n');
+
+                if (!findYazarByID(veri->yazarHead, yazarId_input)) {
+                    printf("Hata: '%d' ID'li yazar sistemde bulunamadi.\n", yazarId_input);
+                    break;
+                }
+
+                int zatenVar = 0;
+                for (int i = 0; i < veri->kitapYazarEslestirmeSayisi; i++) {
+                    if (strcmp((*(veri->kitapYazarEslestirmeleri + i)).isbn, isbn_input) == 0 &&
+                        (*(veri->kitapYazarEslestirmeleri + i)).yazarId == yazarId_input) {
+                        zatenVar = 1;
+                        break;
+                    }
+                }
+                if (zatenVar) {
+                    printf("Hata: Yazar (ID: %d) zaten bu kitapla eslestirilmis.\n", yazarId_input);
+                } else {
+                    if (addKitapYazarEslestirmeDizisine(veri, isbn_input, yazarId_input)) {
+                        printf("Yeni yazar (ID: %d) kitaba basariyla eklendi.\n", yazarId_input);
+                    } else {
+                        printf("Yeni yazar eklenirken hata olustu.\n");
+                    }
+                }
+                break;
+
+            case 0: // Guncellemeyi Bitir
+                devamEt = 0;
+                saveKitapYazarEslestirmeleri(KITAP_YAZAR_CSV_FILE, veri);
+                printf("Kitap-Yazar eslestirmeleri guncellendi ve kaydedildi.\n");
+                break;
+
+            default:
+                printf("Gecersiz secim.\n");
+                break;
+        }
     }
 }
 
@@ -2340,66 +2337,60 @@ void teslimEtKitap(KutuphaneVeri *veri) {
 }
 
 void zamanindaTeslimEdilmeyenKitaplariListele(const KutuphaneVeri *veri) {
-    if (!veri->kitapHead) {
-        printf("Sistemde kayitli kitap bulunmamaktadir.\n");
-        return;
-    }
-    if (veri->oduncIslemiSayisi == 0) {
-        printf("Sistemde hic odunc alma/teslim kaydi bulunmamaktadir.\n");
+    if (veri->oduncIslemiSayisi < 2 && veri->kitapHead == NULL) { // En az bir ödünç ve bir teslim iþlemi olmalý + kitap kontrolü
+        printf("Sistemde yeterli odunc alma/teslim kaydi veya kitap bulunmamaktadir.\n");
         return;
     }
 
-    printf("\n--- Zamaninda Teslim Edilmeyen Kitaplar (Gecikmis) ---\n");
-    printf("%-10s %-25s %-20s %-15s %-10s\n", "Ogr. No", "Ogrenci Ad Soyad", "Kitap Etiket No", "Odunc Tarihi", "Gecikme");
-    printf("-----------------------------------------------------------------------------------------\n");
+    printf("\n--- Zamaninda Teslim Edilmeyen (Gecikmeli Teslim Edilmis) Kitaplar ---\n");
+    printf("%-10s %-25s %-20s %-15s %-15s %-10s\n",
+           "Ogr. No", "Ogrenci Ad Soyad", "Kitap Etiket No", "Odunc Tarihi", "Teslim Tarihi", "Gecikme");
+    printf("---------------------------------------------------------------------------------------------------------\n");
 
-    int gecikmisKitapBulunduGenel = 0; // Genel olarak gecikmiþ kitap bulundu mu?
+    int gecikmisKitapBulunduGenel = 0;
     char mevcutTarihStr[11];
     getCurrentDate(mevcutTarihStr);
+    int m_gun_mevcut, m_ay_mevcut, m_yil_mevcut;
+    parseDate(mevcutTarihStr, &m_gun_mevcut, &m_ay_mevcut, &m_yil_mevcut); // Mevcut tarih parse ediliyor, hata kontrolü þimdilik atlandý
 
-    int m_gun, m_ay, m_yil;
-    if (!parseDate(mevcutTarihStr, &m_gun, &m_ay, &m_yil)) {
-        printf("Hata: Mevcut sistem tarihi alinamadi/parse edilemedi. Listeleme yapilamiyor.\n");
-        return;
-    }
-
+    // 1. Henüz Teslim Edilmemiþ ve Gecikmiþ Kitaplar (Mevcut Mantýk)
     for (KitapNode *k_node = veri->kitapHead; k_node != NULL; k_node = k_node->next) {
         for (KitapOrnegiNode *ko_node = k_node->data.ornekler_head; ko_node != NULL; ko_node = ko_node->next) {
             if (strcmp(ko_node->data.durum, "RAFTA") != 0) { // Kitap ödünçteyse
                 unsigned int oduncAlanOgrenciNo = 0;
                 if (sscanf(ko_node->data.durum, "%u", &oduncAlanOgrenciNo) == 1 && oduncAlanOgrenciNo > 0) {
                     char sonOduncTarihi[11] = "";
-                    int oduncKaydiBulunduIcDongu = 0; // Ýç döngü için bayrak
+                    int oduncKaydiBulunduIcDongu = 0;
 
-                    // Bu kitap örneði için en son ödünç alma iþlemini bul
                     int j = veri->oduncIslemiSayisi - 1;
-                    while (j >= 0 && !oduncKaydiBulunduIcDongu) { // Kayýt bulunana veya döngü bitene kadar
+                    while (j >= 0 && !oduncKaydiBulunduIcDongu) {
                         if ((*(veri->oduncIslemleri + j)).ogrenciNo == oduncAlanOgrenciNo &&
                             strcmp((*(veri->oduncIslemleri + j)).kitapEtiketNo, ko_node->data.etiketNo) == 0 &&
-                            (*(veri->oduncIslemleri + j)).islemTuru == 0) { // Ödünç alma
+                            (*(veri->oduncIslemleri + j)).islemTuru == 0) {
                             strcpy(sonOduncTarihi, (*(veri->oduncIslemleri + j)).tarih);
-                            oduncKaydiBulunduIcDongu = 1; // Kayýt bulundu, iç döngüyü sonlandýracak
+                            oduncKaydiBulunduIcDongu = 1;
                         }
                         j--;
-                    } // Ýç while sonu
+                    }
 
-                    if (oduncKaydiBulunduIcDongu) { // Eðer o kitap için ödünç alma kaydý bulunduysa
+                    if (oduncKaydiBulunduIcDongu) {
                         int o_gun, o_ay, o_yil;
                         if (parseDate(sonOduncTarihi, &o_gun, &o_ay, &o_yil)) {
-                            int gunFarki = calculateDayDifference(o_gun, o_ay, o_yil, m_gun, m_ay, m_yil);
-                            if (gunFarki > 15) { // 15 günü geçmiþse
+                            int gunFarkiMevcut = calculateDayDifference(o_gun, o_ay, o_yil, m_gun_mevcut, m_ay_mevcut, m_yil_mevcut);
+                            if (gunFarkiMevcut > 15) {
                                 ogrenciNode *ogr = findOgrenciByNo(veri->ogrenciHead, oduncAlanOgrenciNo);
                                 char ogr_ad_soyad[101] = "Ogrenci Bulunamadi";
                                 if (ogr) {
                                     snprintf(ogr_ad_soyad, 100, "%s %s", ogr->data.ogrenciAdi, ogr->data.ogrenciSoyadi);
                                     ogr_ad_soyad[100] = '\0';
                                 }
-                                printf("%-10u %-25.25s %-20s %-15s %3d gun\n",
+                                printf("%-10u %-25.25s %-20s %-15s %-15s %3d gun*\n", // * iþareti hala teslim edilmediðini belirtir
                                        oduncAlanOgrenciNo,
                                        ogr_ad_soyad,
                                        ko_node->data.etiketNo,
                                        sonOduncTarihi,
-                                       gunFarki - 15); // Kaç gün geçtiði
+                                       "HENUZ TESLIM EDILMEDI", // Teslim tarihi yok
+                                       gunFarkiMevcut - 15);
                                 gecikmisKitapBulunduGenel = 1;
                             }
                         }
@@ -2409,10 +2400,65 @@ void zamanindaTeslimEdilmeyenKitaplariListele(const KutuphaneVeri *veri) {
         }
     }
 
-    if (!gecikmisKitapBulunduGenel) {
-        printf("Zamaninda teslim edilmemis (15 gunden fazla gecikmis) kitap bulunmamaktadir.\n");
+
+    // 2. Geçmiþte Gecikmeli Teslim Edilmiþ Kitaplar
+    // Her bir "teslim etme" (islemTuru == 1) iþlemini kontrol et
+    for (int i = 0; i < veri->oduncIslemiSayisi; i++) {
+        if ((*(veri->oduncIslemleri + i)).islemTuru == 1) { // Bu bir teslim etme iþlemi
+            OduncIslemi teslimIslemi = *(veri->oduncIslemleri + i);
+            char oduncAlmaTarihi_str[11] = "";
+            int ilgiliOduncKaydiBulundu = 0;
+
+            // Bu teslim iþlemine ait ödünç alma iþlemini bul (ayný öðrenci, ayný kitap, teslimden önceki en son ödünç alma)
+            int j = i - 1; // Teslim iþleminden önceki kayýtlara bak
+            while (j >= 0 && !ilgiliOduncKaydiBulundu) {
+                if ((*(veri->oduncIslemleri + j)).ogrenciNo == teslimIslemi.ogrenciNo &&
+                    strcmp((*(veri->oduncIslemleri + j)).kitapEtiketNo, teslimIslemi.kitapEtiketNo) == 0 &&
+                    (*(veri->oduncIslemleri + j)).islemTuru == 0) { // Ödünç alma iþlemi
+                    strcpy(oduncAlmaTarihi_str, (*(veri->oduncIslemleri + j)).tarih);
+                    ilgiliOduncKaydiBulundu = 1; // En son eþleþen ödünç almayý bulduk
+                }
+                j--;
+            }
+
+            if (ilgiliOduncKaydiBulundu) {
+                int odunc_d, odunc_m, odunc_y;
+                int teslim_d, teslim_m, teslim_y;
+
+                if (parseDate(oduncAlmaTarihi_str, &odunc_d, &odunc_m, &odunc_y) &&
+                    parseDate(teslimIslemi.tarih, &teslim_d, &teslim_m, &teslim_y)) {
+
+                    int gunFarki = calculateDayDifference(odunc_d, odunc_m, odunc_y, teslim_d, teslim_m, teslim_y);
+
+                    if (gunFarki > 15) { // 15 günden fazla sürmüþse
+                        ogrenciNode *ogr = findOgrenciByNo(veri->ogrenciHead, teslimIslemi.ogrenciNo);
+                        char ogr_ad_soyad[101] = "Ogrenci Bulunamadi";
+                        if (ogr) {
+                            snprintf(ogr_ad_soyad, 100, "%s %s", ogr->data.ogrenciAdi, ogr->data.ogrenciSoyadi);
+                            ogr_ad_soyad[100] = '\0';
+                        }
+
+                        printf("%-10u %-25.25s %-20s %-15s %-15s %3d gun\n",
+                               teslimIslemi.ogrenciNo,
+                               ogr_ad_soyad,
+                               teslimIslemi.kitapEtiketNo,
+                               oduncAlmaTarihi_str,
+                               teslimIslemi.tarih,
+                               gunFarki - 15); // Gecikme süresi
+                        gecikmisKitapBulunduGenel = 1;
+                    }
+                }
+            }
+        }
     }
-    printf("-----------------------------------------------------------------------------------------\n");
+
+
+    if (!gecikmisKitapBulunduGenel) {
+        printf("Zamaninda teslim edilmemis (15 gunden fazla gecikmis veya gecikmeli teslim edilmis) kitap bulunmamaktadir.\n");
+    } else {
+        printf("Not: '*' isareti, kitabin hala teslim edilmedigini ve mevcut tarihe gore gecikmeli oldugunu belirtir.\n");
+    }
+    printf("---------------------------------------------------------------------------------------------------------\n");
 }
 
 void listeleTumOduncIslemleri(const KutuphaneVeri *veri) {
@@ -2703,29 +2749,28 @@ void kitapMenu(KutuphaneVeri *veri) {
 
 void kitapYazarMenu(KutuphaneVeri *veri) {
     int choice;
-    int validInput = 0; // Baþlangýç deðeri atandý
+    int validInput = 0;
 
     do {
         printf("\n=== Kitap-Yazar Eslestirme Islemleri ===\n");
         printf("1. Kitap-Yazar Eslestir\n");
         printf("2. Kitap-Yazar Eslestirmesini Kaldir\n");
-        printf("3. Bir Kitabin Yazarlarini Listele\n");
-        printf("4. Bir Yazarin Kitaplarini Listele\n");
-        printf("5. Tum Eslestirmeleri Listele\n");
+        printf("3. Kitabin Yazarini Guncelle\n"); // YENÝ SEÇENEK
+        printf("4. Bir Kitabin Yazarlarini Listele\n"); // Numara güncellendi (önceki 3)
+        printf("5. Bir Yazarin Kitaplarini Listele\n"); // Numara güncellendi (önceki 4)
+        printf("6. Tum Eslestirmeleri Listele\n");    // Numara güncellendi (önceki 5)
         printf("0. Ana Menu'ye Don\n");
         printf("Seciminiz: ");
 
         if (scanf("%d", &choice) != 1) {
             printf("Gecersiz giris. Sayi bekleniyor.\n");
-            while (getchar() != '\n'); // Hatalý giriþ sonrasý tamponu temizle
-            validInput = 0;         // Giriþ geçersiz
-            choice = -1;            // Döngünün devamý için (0'dan farklý)
+            while (getchar() != '\n');
+            validInput = 0;
+            choice = -1;
         } else {
-            while (getchar() != '\n'); // Baþarýlý giriþ sonrasý tamponu temizle
-            validInput = 1;         // Giriþ geçerli
+            while (getchar() != '\n');
+            validInput = 1;
         }
-
-        // Fazladan olan while(getchar() != '\n'); satýrý buradan kaldýrýldý.
 
         if (validInput) {
             switch (choice) {
@@ -2735,13 +2780,16 @@ void kitapYazarMenu(KutuphaneVeri *veri) {
                 case 2:
                     kaldirKitapYazarEslestirmesi(veri);
                     break;
-                case 3:
+                case 3: // YENÝ CASE
+                    kitabinYazariniGuncelle(veri);
+                    break;
+                case 4: // Numara güncellendi (önceki 3)
                     listeleKitabinYazarlari(veri);
                     break;
-                case 4:
+                case 5: // Numara güncellendi (önceki 4)
                     listeleYazarinKitaplari(veri);
                     break;
-                case 5:
+                case 6: // Numara güncellendi (önceki 5)
                     listeleTumKitapYazarEslestirmeleri(veri);
                     break;
                 case 0:
